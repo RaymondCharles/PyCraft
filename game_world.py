@@ -169,7 +169,7 @@ class GameWorld(Entity):
             return
         
         if key == "left mouse down":
-            self.remove_block(hit_info, Block)
+            self.remove_block(hit_info.entity)
             return
         
         if key == "right mouse down":
