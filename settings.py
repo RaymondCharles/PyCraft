@@ -16,4 +16,4 @@ class GameSettings:
     fullscreen: bool  = False
     show_fps: bool = True
 
-    
+    save_file_path: str = "saves/world_1.json"

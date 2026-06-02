@@ -83,6 +83,7 @@ class PyCraftApp:
     # Returns to main menu
     def save_and_quit_to_menu(self) -> None:
         if self.game_world is not None:
+            self.game_world.save_world()
             self.game_world.destroy_world()
             self.game_world = None
 
