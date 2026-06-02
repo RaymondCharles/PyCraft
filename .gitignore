@@ -1,0 +1,24 @@
+# Python virtual environment
+.venv/
+venv/
+env/
+
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ursina / Panda3D cache
+*.bam
+*.egg
+
+# VS Code settings
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Save files - later we may choose whether to upload these or not
+saves/
