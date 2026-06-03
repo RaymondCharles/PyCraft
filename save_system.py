@@ -7,9 +7,10 @@ from typing import Any, Dict, List, Optional, Tuple
 
 Vector3Tuple = Tuple[float, float, float]
 
-# Stores loaded save data into clean python object. This makes the rest of the game code easier to read than passing raw dictionaries around everywhere.
+# Stores loaded save data into clean python object. 
 @dataclass
 class WorldSaveData:
+    world_name: str
     player_position: Vector3Tuple
     blocks: List[Dict[str, Any]]
 
@@ -23,6 +24,7 @@ class SaveSystem:
         self.save_file_path.parent.mkdir(parents=True, exist_ok=True)
 
         save_data = {
+            "world_name": self.get_world_name(),
             "player_position": list(self.vector_to_tuple(player_position)),
             "blocks": [],
         }
@@ -42,26 +44,40 @@ class SaveSystem:
     def load_world(self) -> Optional[WorldSaveData]:
         if not self.save_file_path.exists():
             return None
-
-        with self.save_file_path.open("r", encoding="utf-8") as save_file:
-            raw_data = json.load(save_file)
-
+        
+        try:
+            with self.save_file_path.open("r", encoding="utf-8") as save_file:
+                raw_data = json.load(save_file)
+        except json.JSONDecodeError:
+            return None
+        
+        world_name = raw_data.get("world_name", self.get_world_name())
         player_position = tuple(raw_data.get("player_position", (0, 0, -6)))
         blocks = raw_data.get("blocks", [])
 
         return WorldSaveData(
+            world_name=world_name,
             player_position=player_position,
             blocks=blocks,
         )
+    
+    # Gets a readable world name from the save file name
+    def get_world_name(self) -> str:
+        return self.save_file_path.stem.replace("_", " ").title()
         
       
    #Converts Ursina Vec3 values into normal Python tuples.
    #JSON cannot directly save Ursina's Vec3 type, so we convert: Vec3(1, 2, 3) -> (1, 2, 3)
     @staticmethod
     def vector_to_tuple(value) -> Vector3Tuple:
-        x = getattr(value, "x", value[0])
-        y = getattr(value, "y", value[1])
-        z = getattr(value, "z", value[2])
+        if hasattr(value, "x"):
+            x = value.x
+            y = value.y
+            z = value.z
+        else:
+            x = value[0]
+            y = value[1]
+            z = value[2]
 
         return (
             round(float(x), 2),

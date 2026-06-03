@@ -1,16 +1,20 @@
 from typing import Callable
-from ursina import Button, Entity, Text, application, camera, color, mouse, window
-from settings import GameSettings
 
-# Base class for all menus
+from ursina import Button, Entity, Text, application, camera, color, destroy, mouse, window
+
+from settings import GameSettings
+from world_manager import WorldManager
+
+
 class BaseMenu(Entity):
+    # Base class for all menus
     def __init__(self):
         super().__init__(parent=camera.ui)
 
         self.background = Entity(
             parent=self,
             model="quad",
-            scale=(2,1),
+            scale=(2, 1),
             color=color.rgba(0, 0, 0, 180),
             z=1,
         )
@@ -27,12 +31,13 @@ class BaseMenu(Entity):
     def hide(self) -> None:
         self.enabled = False
 
-# First menu the player sees when opening the game
+
 class MainMenu(BaseMenu):
+    # The first menu the player sees when opening the game
     def __init__(
-            self,
-            on_start: Callable[[], None],
-            on_settings: Callable[[], None],
+        self,
+        on_start: Callable[[], None],
+        on_settings: Callable[[], None],
     ):
         super().__init__()
 
@@ -71,16 +76,130 @@ class MainMenu(BaseMenu):
             on_click=application.quit,
         )
 
-# Settings Menu -> Fullscreen on/off, FPS counter on/off (for now atleast)
-class SettingsMenu(BaseMenu):
+
+class WorldMenu(BaseMenu):
+    # Menu for creating, loading and deleting worlds
     def __init__(
-            self,
-            settings: GameSettings,
-            on_back: Callable[[], None],
+        self,
+        world_manager: WorldManager,
+        on_create_world: Callable[[], None],
+        on_load_world: Callable[[str], None],
+        on_delete_world: Callable[[str], None],
+        on_back: Callable[[], None],
+    ):
+        super().__init__()
+
+        self.world_manager = world_manager
+        self.on_create_world = on_create_world
+        self.on_load_world = on_load_world
+        self.on_delete_world = on_delete_world
+        self.on_back = on_back
+        self.world_buttons = []
+
+        Text(
+            text="Select World",
+            parent=self,
+            origin=(0, 0),
+            position=(0, 0.32),
+            scale=2.5,
+        )
+
+        Button(
+            text="Create New World",
+            parent=self,
+            scale=(0.45, 0.07),
+            position=(0, 0.18),
+            color=color.azure,
+            on_click=self.on_create_world,
+        )
+
+        self.no_worlds_text = Text(
+            text="No saved worlds yet",
+            parent=self,
+            origin=(0, 0),
+            position=(0, 0.04),
+            scale=1.3,
+            color=color.light_gray,
+        )
+
+        Button(
+            text="Back",
+            parent=self,
+            scale=(0.35, 0.07),
+            position=(0, -0.34),
+            color=color.gray,
+            on_click=self.on_back,
+        )
+
+        self.refresh_world_list()
+
+    # Shows the world menu and refreshes the saved world list
+    def show(self) -> None:
+        self.refresh_world_list()
+        super().show()
+
+    # Clears old world buttons
+    def clear_world_buttons(self) -> None:
+        for button in self.world_buttons:
+            destroy(button)
+
+        self.world_buttons.clear()
+
+    # Refreshes the saved world list
+    def refresh_world_list(self) -> None:
+        self.clear_world_buttons()
+
+        worlds = self.world_manager.list_worlds()
+        self.no_worlds_text.enabled = len(worlds) == 0
+
+        start_y = 0.06
+
+        for index, world in enumerate(worlds[:5]):
+            y_position = start_y - (index * 0.1)
+
+            load_button = Button(
+                text=f"Load {world.world_name}",
+                parent=self,
+                scale=(0.35, 0.065),
+                position=(-0.11, y_position),
+                color=color.green,
+                on_click=lambda path=world.save_file_path: self.on_load_world(path),
+            )
+
+            delete_button = Button(
+                text="Delete",
+                parent=self,
+                scale=(0.16, 0.065),
+                position=(0.26, y_position),
+                color=color.red,
+                on_click=lambda path=world.save_file_path: self.delete_world(path),
+            )
+
+            self.world_buttons.append(load_button)
+            self.world_buttons.append(delete_button)
+
+    # Deletes a world and refreshes the list
+    def delete_world(self, save_file_path: str) -> None:
+        self.on_delete_world(save_file_path)
+        self.refresh_world_list()
+
+    # Pressing Escape goes back to the main menu
+    def input(self, key) -> None:
+        if self.enabled and key == "escape":
+            self.on_back()
+
+
+class SettingsMenu(BaseMenu):
+    # Settings menu
+    def __init__(
+        self,
+        settings: GameSettings,
+        on_back: Callable[[], None],
     ):
         super().__init__()
 
         self.settings = settings
+        self.on_back = on_back
 
         Text(
             text="Settings",
@@ -116,8 +235,8 @@ class SettingsMenu(BaseMenu):
         )
 
         self.update_button_text()
-    
-    # Update button labels so they match the current settings
+
+    # Updates button labels so they match the current settings
     def update_button_text(self) -> None:
         fullscreen_text = "ON" if self.settings.fullscreen else "OFF"
         fps_text = "ON" if self.settings.show_fps else "OFF"
@@ -132,20 +251,21 @@ class SettingsMenu(BaseMenu):
 
         self.update_button_text()
 
-    # Turns FPS Counter on/off
+    # Turns the FPS counter on/off
     def toggle_fps_counter(self) -> None:
         self.settings.show_fps = not self.settings.show_fps
         window.fps_counter.enabled = self.settings.show_fps
 
         self.update_button_text()
-    
-    # Pressing Escape inside settings goes back to main menu
+
+    # Pressing Escape inside settings goes back to the main menu
     def input(self, key) -> None:
         if self.enabled and key == "escape":
-            self.hide()
+            self.on_back()
 
-# Menu shown while player is inside of a world
+
 class PauseMenu(BaseMenu):
+    # Menu shown while the player is inside a world
     def __init__(
         self,
         on_resume: Callable[[], None],
@@ -189,7 +309,8 @@ class PauseMenu(BaseMenu):
             color=color.red,
             on_click=application.quit,
         )
-    # Pressing escape while paused resumes the game.    
+
+    # Pressing Escape while paused resumes the game
     def input(self, key) -> None:
         if self.enabled and key == "escape":
             self.on_resume()

@@ -27,12 +27,13 @@ class GameWorld(Entity):
         self,
         settings: GameSettings,
         on_pause_requested: Callable[[], None],
+        save_file_path: str,
     ):
         super().__init__()
 
         self.settings = settings
         self.on_pause_requested = on_pause_requested
-        self.save_system = SaveSystem(settings.save_file_path)
+        self.save_system = SaveSystem(save_file_path)
 
         self.blocks: Dict[BlockPosition, Block] = {}
         self.player = None
